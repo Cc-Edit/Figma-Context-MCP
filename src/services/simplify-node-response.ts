@@ -23,7 +23,7 @@ export interface SimplifiedDesign {
   lastModified: string;
   thumbnailUrl: string;
   // If we want to preserve components data, we can stash it
-  nodes: SimplifiedNode[];
+  nodes: (SimplifiedNode | null)[];
   components?: Record<string, SimplifiedComponent>;
   componentSets?: Record<string, SimplifiedComponentSet>;
   globalVars: Record<string, any>;
@@ -56,6 +56,7 @@ export interface SimplifiedNode {
   // appearance
   fill?: string;
   fills?: SimplifiedFill[] | string;
+  styles?: string;
   strokes?: SimplifiedFill[] | string ;
   opacity?: number;
   borderRadius?: string;
@@ -99,13 +100,13 @@ export interface ColorValue {
 // ---------------------- PARSING ----------------------
 
 // 根据 ID 查找节点的辅助函数
-const findNodeById = (id: string, nodes: SimplifiedNode[]): SimplifiedNode | undefined => {
+const findNodeById = (id: string, nodes: (SimplifiedNode | null)[]): SimplifiedNode | undefined => {
   for (const node of nodes) {
-    if (node.id === id) {
+    if (node?.id === id) {
       return node;
     }
     
-    if (node.children && node.children.length > 0) {
+    if (node?.children && node.children.length > 0) {
       const foundInChildren = findNodeById(id, node.children);
       if (foundInChildren) {
         return foundInChildren;
@@ -150,7 +151,7 @@ export function parseFigmaResponse(data: GetFileNodesResponse, fileKey: string):
     vectorParents: {}
   };
   
-  const simplifiedNodes: SimplifiedNode[] = Object.values(nodes).map(
+  const simplifiedNodes: (SimplifiedNode | null)[] = Object.values(nodes).map(
     (n) => parseNode(globalVars, n.document)
   );
   // 
@@ -170,37 +171,40 @@ export function parseFigmaResponse(data: GetFileNodesResponse, fileKey: string):
   });
   
   
-  
-  // 处理每组相同 childrenId 的父节点
-  Object.values(childrenToParents).forEach((parentIds) => {
-    // 查找所有父节点
-    parentIds.forEach(parentId => {
+  if (simplifiedNodes !== null){
+    // 处理每组相同 childrenId 的父节点
+    Object.values(childrenToParents).forEach((parentIds) => {
       const imageRef = `https://api.figma.com/v1/images/${fileKey}?ids=${parentIds[0]}`
-      let parentNode = findNodeById(parentId, simplifiedNodes);
-      // 如果找到了父节点，直接修改它
-      if (parentNode) {
-        // 保存原始尺寸信息
-        const {id, size} = parentNode;
-        Object.keys(parentNode).forEach(key => {
-          delete parentNode[key as keyof SimplifiedNode];
-        })
-        Object.assign(parentNode, {
-          id,
-          name: "Image",
-          type: "IMAGE",
-          size,
-          fills:[
-            {
-              type: "IMAGE",
-              scaleMode: "FILL",
-              imageRef: imageRef,
-              opacity: 1
-            }
-          ]
-        })
-      }
+      // 查找所有父节点
+      parentIds.forEach(parentId => {
+        let parentNode = findNodeById(parentId, simplifiedNodes);
+        // 如果找到了父节点，直接修改它
+        if (parentNode) {
+          // 保存原始尺寸信息
+          const {id, size} = parentNode;
+          Object.keys(parentNode).forEach(key => {
+            delete parentNode[key as keyof SimplifiedNode];
+          })
+          Object.assign(parentNode, {
+            id,
+            name: "Image",
+            type: "IMAGE",
+            size,
+            fills:[
+              {
+                type: "IMAGE",
+                scaleMode: "FILL",
+                imageRef: imageRef,
+                imageType: 'png',
+                opacity: 1
+              }
+            ]
+          })
+        }
+      });
     });
-  });
+  }
+
 
   // 将分组结果存储到 globalVars
   globalVars.childrenToParents = childrenToParents;
@@ -216,9 +220,9 @@ export function parseFigmaResponse(data: GetFileNodesResponse, fileKey: string):
 }
 
 
-function parseNode(globalVars: Record<string, any>, n: FigmaDocumentNode, parent?: FigmaDocumentNode): SimplifiedNode {
-  const { id, name, type } = n;
-
+function parseNode(globalVars: Record<string, any>, n: FigmaDocumentNode, parent?: FigmaDocumentNode): SimplifiedNode | null {
+  const { id, name, type, visible = true } = n;
+  if (!visible) return null
   const simplified: SimplifiedNode = {
     id,
     name,
@@ -244,6 +248,9 @@ function parseNode(globalVars: Record<string, any>, n: FigmaDocumentNode, parent
   if (hasValue("fills", n) && Array.isArray(n.fills) && n.fills.length) {
     const fills = n.fills.map(parsePaint);
     simplified.fills = findOrCreateVar(globalVars, fills, 'fill');
+  }
+  if (hasValue("styles", n)) {
+    simplified.styles = JSON.stringify(n.styles);
   }
   if (hasValue("strokes", n) && Array.isArray(n.strokes) && n.strokes.length) {
     const strokes = n.strokes.map(parsePaint);
@@ -294,7 +301,10 @@ function parseNode(globalVars: Record<string, any>, n: FigmaDocumentNode, parent
 
   // 递归处理子节点
   if (hasValue("children", n) && n.children.length > 0) {
-    simplified.children = n.children.map((child) => parseNode(globalVars, child, n));
+    let children =  n.children.map((child) => parseNode(globalVars, child, n)).filter((child) => child !== null && child !== undefined);
+    if (children.length){
+      simplified.children = children
+    }
   }
   
   if (hasValue("absoluteBoundingBox", n)) {
