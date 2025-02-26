@@ -2,7 +2,7 @@ import axios, { AxiosError } from "axios";
 import { FigmaError } from "~/types/figma";
 import fs from "fs";
 import { parseFigmaResponse, SimplifiedDesign } from "./simplify-node-response";
-import type { GetFileResponse, GetFileNodesResponse } from "@figma/rest-api-spec";
+import type { GetImagesResponse, GetFileNodesResponse } from "@figma/rest-api-spec";
 
 export class FigmaService {
   private readonly apiKey: string;
@@ -33,9 +33,12 @@ export class FigmaService {
     }
   }
 
-  async getFile(fileKey: string, nodeId: string, ): Promise<GetFileResponse> {
-    const endpoint = `/images/${fileKey}?ids=${nodeId}`;
-    return this.request<GetFileResponse>(endpoint);
+  async getImage(fileKey: string, nodeId: string, ): Promise<string> {
+    const endpoint = `/images/${fileKey}?ids=${nodeId}&scale=2&format=png`;
+    const file = await this.request<GetImagesResponse>(endpoint);
+    const {images = {}} = file
+    console.log(`Successfully get image`, images);
+    return images[nodeId] || '';
   }
 
   async getNode(fileKey: string, nodeId: string, depth?: number): Promise<SimplifiedDesign> {

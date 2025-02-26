@@ -34,13 +34,13 @@ export class FigmaMcpServer {
           console.log(
             `get image: ${nodeId} from file: ${fileKey}`,
           );
-          const file = await this.figmaService.getFile(fileKey, nodeId);
-          console.log(`Successfully get image`, file);
+          const imageUrl = await this.figmaService.getImage(fileKey, nodeId);
+
           return {
-            content: [{ type: "text", text: JSON.stringify({}, null, 2) }],
+            content: [{ type: "text", text: imageUrl }],
           };
         } catch (error) {
-          console.error(`Error fetching node ${nodeId} from file ${fileKey}:`, error);
+          console.error(`Error download node ${nodeId} from file ${fileKey}:`, error);
           return {
             content: [{ type: "text", text: `Error fetching node: ${error}` }],
           };
