@@ -39,11 +39,9 @@ export interface SimplifiedLayout {
 export function buildSimplifiedLayout(
   n: FigmaDocumentNode,
   parent?: FigmaDocumentNode,
-): SimplifiedLayout | undefined {
+): SimplifiedLayout {
   const frameValues = buildSimplifiedFrameValues(n);
-  if (!frameValues) return undefined;
-  const layoutValues = buildSimplifiedLayoutValues(n, parent, frameValues.mode);
-  if (!layoutValues) return undefined;
+  const layoutValues = buildSimplifiedLayoutValues(n, parent, frameValues.mode) || {};
 
   return { ...frameValues, ...layoutValues };
 }
@@ -146,9 +144,9 @@ function getDirection(
   }
 }
 
-function buildSimplifiedFrameValues(n: FigmaDocumentNode): SimplifiedLayout | { mode: "none" } | undefined {
+function buildSimplifiedFrameValues(n: FigmaDocumentNode): SimplifiedLayout | { mode: "none" } {
   if (!isFrame(n)) {
-    return undefined;
+    return { mode: "none" };
   }
 
   const frameValues: SimplifiedLayout = {
@@ -166,7 +164,7 @@ function buildSimplifiedFrameValues(n: FigmaDocumentNode): SimplifiedLayout | { 
   if (overflowScroll.length > 0) frameValues.overflowScroll = overflowScroll;
 
   if (frameValues.mode === "none") {
-    return undefined;
+    return frameValues;
   }
 
   // TODO: convertAlign should be two functions, one for justifyContent and one for alignItems

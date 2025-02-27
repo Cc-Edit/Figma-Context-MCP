@@ -7,7 +7,7 @@ import type {
   RGBA,
 } from "@figma/rest-api-spec";
 import { hasValue, isStrokeWeights, isTruthy } from "~/utils/identity";
-import {removeEmptyKeys, formatRGBAColor, convertColor, generateVarId} from '~/utils/common'
+import {removeEmptyKeys, formatRGBAColor, generateVarId} from '~/utils/common'
 /**
  * TDOO ITEMS
  *
@@ -145,7 +145,7 @@ function findOrCreateVar(
   return varId;
 }
 
-export function parseFigmaResponse(data: GetFileNodesResponse, fileKey: string): SimplifiedDesign {
+export function parseFigmaResponse(data: GetFileNodesResponse): SimplifiedDesign {
   const { name, lastModified, thumbnailUrl, nodes } = data;
   const globalVars: Record<string, any> = {
     vectorParents: {}
@@ -174,7 +174,6 @@ export function parseFigmaResponse(data: GetFileNodesResponse, fileKey: string):
   if (simplifiedNodes !== null){
     // Process parent nodes with the same childrenId
     Object.values(childrenToParents).forEach((parentIds) => {
-      const imageRef = `https://api.figma.com/v1/images/${fileKey}?ids=${parentIds[0]}`
       // Find all parent nodes
       parentIds.forEach(parentId => {
         let parentNode = findNodeById(parentId, simplifiedNodes);
@@ -197,7 +196,7 @@ export function parseFigmaResponse(data: GetFileNodesResponse, fileKey: string):
   }
 
 
-  // 将分组结果存储到 globalVars
+  // Store grouping results in globalVars
   globalVars.childrenToParents = childrenToParents;
   delete globalVars.vectorParents;
 
@@ -214,13 +213,14 @@ export function parseFigmaResponse(data: GetFileNodesResponse, fileKey: string):
 function parseNode(globalVars: Record<string, any>, n: FigmaDocumentNode, parent?: FigmaDocumentNode): SimplifiedNode | null {
   const { id, name, type, visible = true } = n;
   if (!visible) return null
+  
   const simplified: SimplifiedNode = {
     id,
     name,
     type,
   };
 
-  // 处理文本样式
+  // text
   if (hasValue("style", n) && Object.keys(n.style).length) {
     const textStyle = {
       fontFamily: n.style.fontFamily,
@@ -248,13 +248,13 @@ function parseNode(globalVars: Record<string, any>, n: FigmaDocumentNode, parent
     simplified.strokes = findOrCreateVar(globalVars, strokes, 'stroke');
   }
 
-  // 处理布局
+  // Process layout
   const layout = buildSimplifiedLayout(n, parent);
-  if (layout) {
+  if (Object.keys(layout).length > 1) {
     simplified.layout = findOrCreateVar(globalVars, layout, 'layout');
   }
 
-  // 其他简单属性直接保留
+  // Keep other simple properties directly
   if (hasValue("characters", n, isTruthy)) {
     simplified.text = n.characters;
   }
@@ -290,7 +290,7 @@ function parseNode(globalVars: Record<string, any>, n: FigmaDocumentNode, parent
     simplified.borderRadius = `${n.cornerRadius}px`;
   }
 
-  // 递归处理子节点
+  // Recursively process child nodes
   if (hasValue("children", n) && n.children.length > 0) {
     let children =  n.children.map((child) => parseNode(globalVars, child, n)).filter((child) => child !== null && child !== undefined);
     if (children.length){
@@ -306,17 +306,17 @@ function parseNode(globalVars: Record<string, any>, n: FigmaDocumentNode, parent
     }
   }
 
-  // 检测 VECTOR 类型节点并存储其父节点信息
+  // Detect VECTOR type nodes and store their parent node information
   if (type === "VECTOR") {
-    // 缓存 VECTOR 节点，使用前缀直接存储
+    // Cache VECTOR nodes, store directly using prefix
     const{ id: nodeId, ...vectorNodeData } = simplified;
     
-    // 查找是否已存在相似的节点（忽略id）
+    // Check if similar nodes already exist (ignoring id)
     const vectorId = findOrCreateVar(globalVars, vectorNodeData, 'vector');
     
-    // 如果有父节点，存储关联信息
+    // If there is a parent node, store relationship information
     if (parent) {
-      // 存储 VECTOR 节点的父节点信息
+      // Store parent node information of the VECTOR node
       globalVars.vectorParents[parent.id] = {
         parentId: parent.id,
         parentName: parent.name,

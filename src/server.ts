@@ -48,6 +48,31 @@ export class FigmaMcpServer {
         }
       },
     );  
+     // Tool to get file information
+     this.server.tool(
+      "get_file",
+      "Get layout information about an entire Figma file",
+      {
+        fileKey: z.string().describe("The key of the Figma file to fetch"),
+        depth: z.number().optional().describe("How many levels deep to traverse the node tree"),
+      },
+      async ({ fileKey, depth }) => {
+        try {
+          console.log(`Fetching file: ${fileKey} (depth: ${depth ?? "default"})`);
+          const file = await this.figmaService.getFile(fileKey, depth);
+          console.log(`Successfully fetched file: ${file.name}`);
+          return {
+            content: [{ type: "text", text: JSON.stringify(file, null, 2) }],
+          };
+        } catch (error) {
+          console.error(`Error fetching file ${fileKey}:`, error);
+          return {
+            content: [{ type: "text", text: `Error fetching file: ${error}` }],
+          };
+        }
+      },
+    );
+
     // Tool to get node information
     this.server.tool(
       "get_node",
