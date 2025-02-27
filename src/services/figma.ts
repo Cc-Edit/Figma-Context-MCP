@@ -3,6 +3,7 @@ import { FigmaError } from "~/types/figma";
 import fs from "fs";
 import { parseFigmaResponse, SimplifiedDesign } from "./simplify-node-response";
 import type { GetImagesResponse, GetFileNodesResponse } from "@figma/rest-api-spec";
+import { downloadFigmaImage } from "~/utils/common";
 
 export class FigmaService {
   private readonly apiKey: string;
@@ -33,16 +34,21 @@ export class FigmaService {
     }
   }
 
-  async getImage(fileKey: string, nodeId: string, ): Promise<string> {
+  async getImage(fileKey: string, nodeId: string, fileName: string, localPath: string): Promise<boolean> {
     const endpoint = `/images/${fileKey}?ids=${nodeId}&scale=2&format=png`;
     const file = await this.request<GetImagesResponse>(endpoint);
     const {images = {}} = file
-    console.log(`Successfully get image`, images);
-    return images[nodeId] || '';
+    let success = false;
+    if (images[nodeId]) {
+      await downloadFigmaImage(fileName, localPath, images[nodeId]);
+      console.log(`Successfully save image`, localPath, fileName);
+      success = true;
+    }
+    return success;
   }
 
   async getNode(fileKey: string, nodeId: string, depth?: number): Promise<SimplifiedDesign> {
-    const endpoint = `/files/${fileKey}/nodes?ids=${nodeId}${depth ? `&depth=10` : ""}`;
+    const endpoint = `/files/${fileKey}/nodes?ids=${nodeId}${depth ? `&depth=${depth}` : ""}`;
     const response = await this.request<GetFileNodesResponse>(endpoint);
     writeLogs("figma-raw.json", response);
     const simplifiedResponse = parseFigmaResponse(response, fileKey);
@@ -53,7 +59,7 @@ export class FigmaService {
 
 function writeLogs(name: string, value: any) {
   try {
-    // if (process.env.NODE_ENV !== "development") return;
+    if (process.env.NODE_ENV !== "development") return;
 
     const logsDir = "logs";
 

@@ -99,7 +99,7 @@ export interface ColorValue {
 
 // ---------------------- PARSING ----------------------
 
-// 根据 ID 查找节点的辅助函数
+// Helper function to find node by ID
 const findNodeById = (id: string, nodes: (SimplifiedNode | null)[]): SimplifiedNode | undefined => {
   for (const node of nodes) {
     if (node?.id === id) {
@@ -119,18 +119,18 @@ const findNodeById = (id: string, nodes: (SimplifiedNode | null)[]): SimplifiedN
 
 
 /**
- * 查找或创建全局变量
- * @param globalVars - 全局变量对象
- * @param value - 要存储的值
- * @param prefix - 变量ID前缀
- * @returns 变量ID
+ * Find or create global variables
+ * @param globalVars - Global variables object
+ * @param value - Value to store
+ * @param prefix - Variable ID prefix
+ * @returns Variable ID
  */
 function findOrCreateVar(
   globalVars: Record<string, any>, 
   value: any, 
   prefix: string
 ): string {
-  // 查找是否存在相同的值
+  // Check if the same value already exists
   const existingVarId = Object.entries(globalVars).find(
     ([_, existingValue]) => JSON.stringify(existingValue) === JSON.stringify(value)
   )?.[0];
@@ -139,7 +139,7 @@ function findOrCreateVar(
     return existingVarId;
   }
 
-  // 不存在则创建新的变量
+  // Create a new variable if it doesn't exist
   const varId = generateVarId(prefix);
   globalVars[varId] = value;
   return varId;
@@ -156,10 +156,10 @@ export function parseFigmaResponse(data: GetFileNodesResponse, fileKey: string):
   );
   // 
   
-  // 根据 childrenId 重组 vectorParents
+  // Reorganize vectorParents based on childrenId
   const childrenToParents: Record<string, string[]> = {};
   
-  // 遍历 vectorParents，按 childrenId 分组
+  // Iterate through vectorParents, group by childrenId
   Object.entries(globalVars.vectorParents).forEach(([parentId, data]) => {
     const { childrenId } = data as { childrenId: string };
     
@@ -172,15 +172,15 @@ export function parseFigmaResponse(data: GetFileNodesResponse, fileKey: string):
   
   
   if (simplifiedNodes !== null){
-    // 处理每组相同 childrenId 的父节点
+    // Process parent nodes with the same childrenId
     Object.values(childrenToParents).forEach((parentIds) => {
       const imageRef = `https://api.figma.com/v1/images/${fileKey}?ids=${parentIds[0]}`
-      // 查找所有父节点
+      // Find all parent nodes
       parentIds.forEach(parentId => {
         let parentNode = findNodeById(parentId, simplifiedNodes);
-        // 如果找到了父节点，直接修改它
+        // If parent node is found, modify it directly
         if (parentNode) {
-          // 保存原始尺寸信息
+          // Save original size information
           const {id, size} = parentNode;
           Object.keys(parentNode).forEach(key => {
             delete parentNode[key as keyof SimplifiedNode];
@@ -189,16 +189,7 @@ export function parseFigmaResponse(data: GetFileNodesResponse, fileKey: string):
             id,
             name: "Image",
             type: "IMAGE",
-            size,
-            fills:[
-              {
-                type: "IMAGE",
-                scaleMode: "FILL",
-                imageRef: imageRef,
-                imageType: 'png',
-                opacity: 1
-              }
-            ]
+            size
           })
         }
       });

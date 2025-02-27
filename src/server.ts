@@ -24,20 +24,21 @@ export class FigmaMcpServer {
   private registerTools(): void {
     this.server.tool(
       "get_image", 
-      "根据figma数据中的image节点的imageRef获取图片", 
+      "Get images from Figma data based on the imageRef of image nodes",
       {
         fileKey: z.string().describe("The key of the Figma file containing the node"),
-        nodeId: z.string().describe("The ID of the node to fetch")
+        nodeId: z.string().describe("The ID of the node to fetch"),
+        fileName: z.string().describe("The name of the file to fetch"),
+        localPath: z.string().describe("The absolute path to the directory where images are stored in the project"),
       },
-      async ({ fileKey, nodeId }) => {
+      async ({ fileKey, nodeId, fileName, localPath }) => {
         try {
           console.log(
             `get image: ${nodeId} from file: ${fileKey}`,
           );
-          const imageUrl = await this.figmaService.getImage(fileKey, nodeId);
-
+          const saveSuccess = await this.figmaService.getImage(fileKey, nodeId, fileName, localPath);
           return {
-            content: [{ type: "text", text: imageUrl }],
+            content: [{ type: "text", text: saveSuccess ? "Success" : "Failed" }],
           };
         } catch (error) {
           console.error(`Error download node ${nodeId} from file ${fileKey}:`, error);

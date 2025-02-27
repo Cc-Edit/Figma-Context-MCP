@@ -42,7 +42,6 @@
     "@modelcontextprotocol/sdk": "^1.5.0",
     "@types/yargs": "^17.0.33",
     "axios": "^1.7.9",
-    "big-json": "^3.2.0",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
     "remeda": "^2.20.1",

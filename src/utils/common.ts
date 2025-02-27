@@ -1,8 +1,8 @@
-const bigJson = require('big-json');
-import { Readable } from 'stream';
+import axios from 'axios';
+import fs from 'fs';
+import path from 'path';
 
 import type {
-  Node as FigmaDocumentNode,
   RGBA,
 } from "@figma/rest-api-spec";
 
@@ -12,91 +12,86 @@ export interface ColorValue {
 }
 
 /**
- * 将大型对象转换为 JSON 字符串。
- * @param file - 需要转换的对象。
- * @returns 返回一个 Promise，解析为 JSON 字符串。
- * @throws 如果转换失败，抛出错误。
+ * Download Figma image and save it locally
+ * @param fileName - The filename to save as
+ * @param localPath - The local path to save to
+ * @param imageUrl - Image URL (images[nodeId])
+ * @returns A Promise that resolves to the full file path where the image was saved
+ * @throws Error if download fails
  */
-export async function stringify<T>(file: T): Promise<string> {
+export async function downloadFigmaImage(
+  fileName: string, 
+  localPath: string, 
+  imageUrl: string
+): Promise<string> {
   try {
-    const stringifyStream = bigJson.createStringifyStream({
-      body: file,
-    });
-
-    const readableStream = Readable.from(stringifyStream);
-    const chunks: Buffer[] = [];
-
-    for await (const chunk of readableStream) {
-      chunks.push(Buffer.from(chunk));
+    // Ensure local path exists
+    if (!fs.existsSync(localPath)) {
+      fs.mkdirSync(localPath, { recursive: true });
     }
-
-    return Buffer.concat(chunks).toString('utf8');
-  } catch (error) {
-    throw new Error(`Failed to stringify file`);
-  }
-}
-
-
-/**
- * 解析大型 JSON 字符串为对象。
- * @param jsonString - 需要解析的 JSON 字符串。
- * @returns 返回一个 Promise，解析为解析后的对象。
- * @throws 如果解析失败，抛出错误。
- */
-export async function parse<T>(jsonString: string): Promise<T> {
-  try {
-    const parseStream = bigJson.createParseStream();
-
-    const readableStream = Readable.from(jsonString);
-    let parsedData: T;
-
-    // 将数据通过管道传输到解析流
-    readableStream.pipe(parseStream);
-
+    
+    // Build the complete file path
+    const fullPath = path.join(localPath, fileName);
+    
+    // Use axios to download the image, set responseType to stream
+    const response = await axios({
+      method: 'GET',
+      url: imageUrl,
+      responseType: 'stream',
+      timeout: 30000, // 30 seconds timeout
+    });
+    
+    // Create write stream
+    const writer = fs.createWriteStream(fullPath);
+    
+    // Pipe response stream to file stream
+    response.data.pipe(writer);
+    
+    // Return a Promise that resolves when writing is complete
     return new Promise((resolve, reject) => {
-      parseStream.on('data', (data: T) => {
-        parsedData = data;
+      writer.on('finish', () => {
+        console.log(`Image saved to: ${fullPath}`);
+        resolve(fullPath);
       });
-
-      parseStream.on('end', () => {
-        resolve(parsedData);
-      });
-
-      parseStream.on('error', (error: Error) => {
-        reject(error);
+      
+      writer.on('error', (err: Error) => {
+        // Delete partially downloaded file
+        fs.unlink(fullPath, () => {});
+        reject(new Error(`Failed to download image: ${err.message}`));
       });
     });
   } catch (error) {
-    throw new Error(`Failed to parse JSON`);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    throw new Error(`Error downloading image: ${errorMessage}`);
   }
 }
 
 /**
- * 移除对象中值为空数组或空对象的键。
- * @param input - 输入的对象或值。
- * @returns 返回处理后的对象或原样返回的值。
+ * Remove keys with empty arrays or empty objects from an object.
+ * @param input - The input object or value.
+ * @returns The processed object or the original value.
  */
 export function removeEmptyKeys<T>(input: T): T {
-  // 如果不是对象类型或为null,直接返回
+  // If not an object type or null, return directly
   if (typeof input !== 'object' || input === null) {
     return input;
   }
 
-  // 处理数组类型
+  // Handle array type
   if (Array.isArray(input)) {
     return input.map(item => removeEmptyKeys(item)) as T;
   }
 
-  // 处理对象类型
+  // Handle object type
   const result = {} as T;
   for (const key in input) {
     if (Object.prototype.hasOwnProperty.call(input, key)) {
       const value = input[key];
       
-      // 递归处理嵌套对象
+      // Recursively process nested objects
       const cleanedValue = removeEmptyKeys(value);
       
-      // 跳过空数组和空对象
+      // Skip empty arrays and empty objects
       if (
         cleanedValue !== undefined && 
         !(Array.isArray(cleanedValue) && cleanedValue.length === 0) &&
@@ -113,26 +108,26 @@ export function removeEmptyKeys<T>(input: T): T {
 }
 
 /**
- * 将hex颜色值和opacity转换为rgba格式
- * @param hex - 十六进制颜色值 (例如: "#FF0000" 或 "#F00")
- * @param opacity - 透明度值 (0-1)
- * @returns rgba格式的颜色字符串
+ * Convert hex color value and opacity to rgba format
+ * @param hex - Hexadecimal color value (e.g., "#FF0000" or "#F00")
+ * @param opacity - Opacity value (0-1)
+ * @returns Color string in rgba format
  */
 export function hexToRgba(hex: string, opacity: number = 1): string {
-  // 移除可能存在的 # 前缀
+  // Remove possible # prefix
   hex = hex.replace('#', '');
   
-  // 处理简写的hex值 (例如 #FFF)
+  // Handle shorthand hex values (e.g., #FFF)
   if (hex.length === 3) {
     hex = hex[0] + hex[0] + hex[1] + hex[1] + hex[2] + hex[2];
   }
   
-  // 将hex转换为RGB值
+  // Convert hex to RGB values
   const r = parseInt(hex.substring(0, 2), 16);
   const g = parseInt(hex.substring(2, 4), 16);
   const b = parseInt(hex.substring(4, 6), 16);
   
-  // 确保opacity在0-1范围内
+  // Ensure opacity is in the 0-1 range
   const validOpacity = Math.min(Math.max(opacity, 0), 1);
   
   return `rgba(${r}, ${g}, ${b}, ${validOpacity})`;
@@ -176,9 +171,9 @@ export function formatRGBAColor(color: RGBA, opacity = 1): string {
 }
 
 /**
- * 生成6位随机变量ID
- * @param prefix - ID前缀
- * @returns 带前缀的6位随机ID字符串
+ * Generate a 6-character random variable ID
+ * @param prefix - ID prefix
+ * @returns A 6-character random ID string with prefix
  */
 export function generateVarId(prefix: string = 'var'): string {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
