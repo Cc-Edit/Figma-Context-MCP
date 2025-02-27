@@ -24,7 +24,7 @@ export class FigmaMcpServer {
   private registerTools(): void {
     this.server.tool(
       "get_image", 
-      "Get images from Figma data based on the imageRef of image nodes",
+      "Get the icon file, Get images from Figma data based on the imageRef of image nodes",
       {
         fileKey: z.string().describe("The key of the Figma file containing the node"),
         nodeId: z.string().describe("The ID of the node to fetch"),
@@ -51,7 +51,7 @@ export class FigmaMcpServer {
      // Tool to get file information
      this.server.tool(
       "get_file",
-      "Get layout information about an entire Figma file",
+      "When the nodeId cannot be obtained, obtain the layout information about the entire Figma file",
       {
         fileKey: z.string().describe("The key of the Figma file to fetch"),
         depth: z.number().optional().describe("How many levels deep to traverse the node tree"),
