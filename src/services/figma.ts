@@ -50,24 +50,6 @@ export class FigmaService {
     }
     return success;
   }
-  
-  async getFile(fileKey: string, depth?: number): Promise<SimplifiedDesign> {
-    try {
-      const endpoint = `/files/${fileKey}${depth ? `?depth=${depth}` : ""}`;
-      console.log(`Calling ${this.baseUrl}${endpoint}`);
-      const response = await this.request<GetFileResponse>(endpoint);
-      console.log("Got response");
-      const simplifiedResponse = parseFigmaFileResponse(response);
-      writeLogs("figma-raw.json", response);
-      writeLogs("figma-simplified.json", simplifiedResponse);
-      return simplifiedResponse;
-    } catch (e) {
-      console.log("hi?");
-      console.error("Failed to get file:", e);
-      throw e;
-    }
-  }
-
   async getNode(fileKey: string, nodeId: string, depth?: number): Promise<SimplifiedDesign> {
     const endpoint = `/files/${fileKey}/nodes?ids=${nodeId}${depth ? `&depth=${depth}` : ""}`;
     const response = await this.request<GetFileNodesResponse>(endpoint);

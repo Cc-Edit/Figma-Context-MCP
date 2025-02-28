@@ -47,37 +47,6 @@ export class FigmaMcpServer {
           };
         }
       },
-    );  
-     // Tool to get file information
-     this.server.tool(
-      "get_file",
-      "When the nodeId cannot be obtained, obtain the layout information about the entire Figma file",
-      {
-        fileKey: z.string().describe("The key of the Figma file to fetch"),
-        depth: z.number().optional().describe("How many levels deep to traverse the node tree"),
-      },
-      async ({ fileKey, depth }) => {
-        try {
-          console.log(`Fetching file: ${fileKey} (depth: ${depth ?? "default"})`);
-          const file = await this.figmaService.getFile(fileKey, depth);
-          console.log(`Successfully fetched file: ${file.name}`);
-          const { nodes, ...metadata } = file;
-
-          // Stringify each node individually to try to avoid max string length error with big files
-          const nodesJson = `[${nodes.map((node) => JSON.stringify(node, null, 2)).join(",")}]`;
-          const metadataJson = JSON.stringify(metadata, null, 2);
-          const resultJson = `{ "metadata": ${metadataJson}, "nodes": ${nodesJson} }`;
-
-          return {
-            content: [{ type: "text", text: resultJson }],
-          };
-        } catch (error) {
-          console.error(`Error fetching file ${fileKey}:`, error);
-          return {
-            content: [{ type: "text", text: `Error fetching file: ${error}` }],
-          };
-        }
-      },
     );
 
     // Tool to get node information
@@ -87,14 +56,13 @@ export class FigmaMcpServer {
       {
         fileKey: z.string().describe("The key of the Figma file containing the node"),
         nodeId: z.string().describe("The ID of the node to fetch"),
-        depth: z.number().optional().describe("How many levels deep to traverse the node tree"),
       },
-      async ({ fileKey, nodeId, depth }) => {
+      async ({ fileKey, nodeId }) => {
         try {
           console.log(
-            `Fetching node: ${nodeId} from file: ${fileKey} (depth: ${depth ?? "default"})`,
+            `Fetching node: ${nodeId} from file: ${fileKey} )`,
           );
-          const node = await this.figmaService.getNode(fileKey, nodeId, depth);
+          const node = await this.figmaService.getNode(fileKey, nodeId);
           console.log(
             `Successfully fetched node: ${node.name} (ids: ${Object.keys(node.nodes).join(", ")})`,
           );
