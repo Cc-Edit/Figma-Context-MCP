@@ -39,7 +39,6 @@ type GlobalVars = Record<string, TextStyle | SimplifiedFill[] | SimplifiedLayout
 export interface SimplifiedDesign {
   name: string;
   lastModified: string;
-  thumbnailUrl: string;
   nodes: SimplifiedNode[];
   globalVars: GlobalVars;
 }
@@ -119,8 +118,8 @@ function parseGlobalVars(globalVars: GlobalVars, simplifiedNodes: SimplifiedNode
     
     if (!childrenToParents[childrenId]) {
       childrenToParents[childrenId] = [];
+      delete globalVars[childrenId]
     }
-    
     childrenToParents[childrenId].push(parentId);
   });
   
@@ -156,7 +155,7 @@ function parseGlobalVars(globalVars: GlobalVars, simplifiedNodes: SimplifiedNode
 
 // ---------------------- PARSING ----------------------
 export function parseFigmaFileResponse(data: GetFileResponse): SimplifiedDesign {
-  const { name, lastModified, thumbnailUrl, document } = data;
+  const { name, lastModified, document } = data;
   let globalVars: Record<string, any> = {
     vectorParents: {}
   };
@@ -168,7 +167,6 @@ export function parseFigmaFileResponse(data: GetFileResponse): SimplifiedDesign 
   return {
     name,
     lastModified,
-    thumbnailUrl: thumbnailUrl || "",
     nodes: simplifiedNodes,
     globalVars,
   };
@@ -203,7 +201,6 @@ const findNodeById = (id: string, nodes: SimplifiedNode[]): SimplifiedNode | und
 function findOrCreateVar(
   globalVars: Record<string, any>, 
   value: any, 
-  prefix: string
 ): string {
   // Check if the same value already exists
   const existingVarId = Object.entries(globalVars).find(
@@ -215,13 +212,13 @@ function findOrCreateVar(
   }
 
   // Create a new variable if it doesn't exist
-  const varId = generateVarId(prefix);
+  const varId = generateVarId();
   globalVars[varId] = value;
   return varId;
 }
 
 export function parseFigmaResponse(data: GetFileNodesResponse): SimplifiedDesign {
-  const { name, lastModified, thumbnailUrl, nodes } = data;
+  const { name, lastModified, nodes } = data;
   let globalVars: Record<string, any> = {
     vectorParents: {}
   };
@@ -235,7 +232,6 @@ export function parseFigmaResponse(data: GetFileNodesResponse): SimplifiedDesign
   return {
     name,
     lastModified,
-    thumbnailUrl,
     nodes: simplifiedNodes,
     globalVars,
   };
@@ -259,38 +255,35 @@ function parseNode(globalVars: Record<string, any>, n: FigmaDocumentNode, parent
       fontFamily: style.fontFamily,
       fontWeight: style.fontWeight,
       fontSize: style.fontSize,
-      lineHeight:
-        style.lineHeightPx && style.fontSize
-          ? `${style.lineHeightPx / style.fontSize}em`
-          : undefined,
+      lineHeight: style.lineHeightPx ?? style.fontSize,
       letterSpacing:
-        style.letterSpacing && style.letterSpacing !== 0 && style.fontSize
-          ? `${(style.letterSpacing / style.fontSize) * 100}%`
+        style.letterSpacing && style.letterSpacing !== 0
+          ? style.letterSpacing
           : undefined,
       textCase: style.textCase,
       textAlignHorizontal: style.textAlignHorizontal,
       textAlignVertical: style.textAlignVertical,
     };
-    simplified.textStyle = findOrCreateVar(globalVars, textStyle, 'style');
+    simplified.textStyle = findOrCreateVar(globalVars, textStyle);
   }
 
   // fills & strokes
   if (hasValue("fills", n) && Array.isArray(n.fills) && n.fills.length) {
     const fills = n.fills.map(parsePaint);
-    simplified.fills = findOrCreateVar(globalVars, fills, 'fill');
+    simplified.fills = findOrCreateVar(globalVars, fills);
   }
   if (hasValue("styles", n)) {
-    simplified.styles = findOrCreateVar(globalVars, n.styles, 'styles');
+    simplified.styles = findOrCreateVar(globalVars, n.styles);
   }
   if (hasValue("strokes", n) && Array.isArray(n.strokes) && n.strokes.length) {
     const strokes = n.strokes.map(parsePaint);
-    simplified.strokes = findOrCreateVar(globalVars, strokes, 'stroke');
+    simplified.strokes = findOrCreateVar(globalVars, strokes);
   }
 
   // Process layout
   const layout = buildSimplifiedLayout(n, parent);
   if (Object.keys(layout).length > 1) {
-    simplified.layout = findOrCreateVar(globalVars, layout, 'layout');
+    simplified.layout = findOrCreateVar(globalVars, layout);
   }
 
   // Keep other simple properties directly
@@ -317,7 +310,7 @@ function parseNode(globalVars: Record<string, any>, n: FigmaDocumentNode, parent
       bottom: n.individualStrokeWeights.bottom,
       left: n.individualStrokeWeights.left,
     };
-    simplified.individualStrokeWeights = findOrCreateVar(globalVars, strokeWeights, 'weights');
+    simplified.individualStrokeWeights = findOrCreateVar(globalVars, strokeWeights);
   }
 
   // opacity
@@ -343,7 +336,7 @@ function parseNode(globalVars: Record<string, any>, n: FigmaDocumentNode, parent
     const{ id: nodeId, ...vectorNodeData } = simplified;
     
     // Check if similar nodes already exist (ignoring id)
-    const vectorId = findOrCreateVar(globalVars, vectorNodeData, 'vector');
+    const vectorId = findOrCreateVar(globalVars, vectorNodeData);
     
     // If there is a parent node, store relationship information
     if (parent) {

@@ -28,8 +28,8 @@ export interface SimplifiedLayout {
     left: string;
   };
   sizing?: {
-    horizontal?: "fixed" | "fill" | "hug";
-    vertical?: "fixed" | "fill" | "hug";
+    h?: "fixed" | "fill" | "hug";
+    v?: "fixed" | "fill" | "hug";
   };
   overflowScroll?: ("x" | "y")[];
   position?: "absolute";
@@ -206,8 +206,8 @@ function buildSimplifiedLayoutValues(
   const layoutValues: SimplifiedLayout = { mode };
 
   layoutValues.sizing = {
-    horizontal: convertSizing(n.layoutSizingHorizontal),
-    vertical: convertSizing(n.layoutSizingVertical),
+    h: convertSizing(n.layoutSizingHorizontal),
+    v: convertSizing(n.layoutSizingVertical),
   };
 
   // Only include positioning-related properties if parent layout isn't flex or if the node is absolute
@@ -226,20 +226,20 @@ function buildSimplifiedLayoutValues(
 
   // Handle dimensions based on layout growth and alignment
   if (isRectangle("absoluteBoundingBox", n) && isRectangle("absoluteBoundingBox", parent)) {
-    const dimensions: { width?: number; height?: number; aspectRatio?: number } = {};
+    const dimensions: { w?: number; h?: number; aspectRatio?: number } = {};
 
     // Only include dimensions that aren't meant to stretch
     if (mode === "row") {
       if (!n.layoutGrow && n.layoutSizingHorizontal == "FIXED")
-        dimensions.width = n.absoluteBoundingBox.width;
+        dimensions.w = n.absoluteBoundingBox.width;
       if (n.layoutAlign !== "STRETCH" && n.layoutSizingVertical == "FIXED")
-        dimensions.height = n.absoluteBoundingBox.height;
+        dimensions.h = n.absoluteBoundingBox.height;
     } else if (mode === "column") {
       // column
       if (n.layoutAlign !== "STRETCH" && n.layoutSizingHorizontal == "FIXED")
-        dimensions.width = n.absoluteBoundingBox.width;
+        dimensions.w = n.absoluteBoundingBox.width;
       if (!n.layoutGrow && n.layoutSizingVertical == "FIXED")
-        dimensions.height = n.absoluteBoundingBox.height;
+        dimensions.h = n.absoluteBoundingBox.height;
 
       if (n.preserveRatio) {
         dimensions.aspectRatio = n.absoluteBoundingBox?.width / n.absoluteBoundingBox?.height;

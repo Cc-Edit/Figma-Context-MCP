@@ -175,8 +175,8 @@ export function formatRGBAColor(color: RGBA, opacity = 1): string {
  * @param prefix - ID prefix
  * @returns A 6-character random ID string with prefix
  */
-export function generateVarId(prefix: string = 'var'): string {
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+export function generateVarId(prefix: string = '$'): string {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-';
   let result = '';
   
   for (let i = 0; i < 6; i++) {
@@ -184,6 +184,6 @@ export function generateVarId(prefix: string = 'var'): string {
     result += chars[randomIndex];
   }
   
-  return `${prefix}_${result}`;
+  return prefix ? `${prefix}_${result}` : result;
 }
 
