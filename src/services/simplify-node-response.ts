@@ -58,9 +58,8 @@ export interface SimplifiedComponentSet {
 
 export interface SimplifiedNode {
   id: string;
-  name: string;
+  name?: string; // There is redundancy in the name field
   type: string; // e.g. FRAME, TEXT, INSTANCE, RECTANGLE, etc.
-  size?: {};
   // geometry
   boundingBox?: BoundingBox;
   // text
@@ -135,15 +134,13 @@ function parseGlobalVars(globalVars: GlobalVars, simplifiedNodes: SimplifiedNode
         // If parent node is found, modify it directly
         if (parentNode) {
           // Save original size information
-          const {id, size} = parentNode;
+          const {id} = parentNode;
           Object.keys(parentNode).forEach(key => {
             delete parentNode[key as keyof SimplifiedNode];
           })
           Object.assign(parentNode, {
             id,
-            name: "Image",
-            type: "IMAGE",
-            size
+            type: "IMAGE"
           })
         }
       });
@@ -246,13 +243,12 @@ export function parseFigmaResponse(data: GetFileNodesResponse): SimplifiedDesign
 
 
 function parseNode(globalVars: Record<string, any>, n: FigmaDocumentNode, parent?: FigmaDocumentNode): SimplifiedNode | null {
-  const { id, name, type, visible = true } = n;
+  const { id, type, visible = true } = n;
   // Ignore invisible elements
   if (!visible) return null
   
   const simplified: SimplifiedNode = {
     id,
-    name,
     type,
   };
 
@@ -284,7 +280,7 @@ function parseNode(globalVars: Record<string, any>, n: FigmaDocumentNode, parent
     simplified.fills = findOrCreateVar(globalVars, fills, 'fill');
   }
   if (hasValue("styles", n)) {
-    simplified.styles = JSON.stringify(n.styles);
+    simplified.styles = findOrCreateVar(globalVars, n.styles, 'styles');
   }
   if (hasValue("strokes", n) && Array.isArray(n.strokes) && n.strokes.length) {
     const strokes = n.strokes.map(parsePaint);
@@ -338,14 +334,6 @@ function parseNode(globalVars: Record<string, any>, n: FigmaDocumentNode, parent
     let children =  n.children.map((child) => parseNode(globalVars, child, n)).filter((child) => child !== null && child !== undefined);
     if (children.length){
       simplified.children = children
-    }
-  }
-  
-  if (hasValue("absoluteBoundingBox", n)) {
-    const { width, height } = n.absoluteBoundingBox || {};
-    simplified.size = {
-      width,
-      height
     }
   }
 
